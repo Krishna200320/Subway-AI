@@ -4,7 +4,7 @@ import cors from 'cors'
 import Anthropic from '@anthropic-ai/sdk'
 
 const app = express()
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:5174', 'https://subway-ai-9gfb.vercel.app', 'https://subway-ai.vercel.app'],
