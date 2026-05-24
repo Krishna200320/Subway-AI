@@ -7,7 +7,7 @@ const app = express()
 const PORT = 3001
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:5174'],
+  origin: ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:5174', 'https://subway-ai-9gfb.vercel.app', 'https://subway-ai.vercel.app'],
 }))
 app.use(express.json({ limit: '64kb' }))
 
