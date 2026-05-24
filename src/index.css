@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes bounce-in {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.9); }
+  60%  { transform: translateX(-50%) translateY(2px) scale(1.02); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+.animate-bounce-in {
+  animation: bounce-in 0.3s ease forwards;
+}
+
+@keyframes nudgeFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes demoBadgeIn {
+  from { opacity: 0; transform: translateX(12px) scale(0.9); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes demoBadgeFade {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Ghost Navigator highlight — pulsing green glow on menu items */
+@keyframes ghostHighlight {
+  0%   { box-shadow: 0 0 0 0 rgba(0,154,68,0); transform: scale(1); }
+  20%  { box-shadow: 0 0 0 6px rgba(0,154,68,0.4); transform: scale(1.025); }
+  60%  { box-shadow: 0 0 0 12px rgba(0,154,68,0.2); transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 0 rgba(0,154,68,0); transform: scale(1); }
+}
+.ghost-highlight {
+  animation: ghostHighlight 1.5s ease 3;
+  border-color: #009A44 !important;
+  position: relative;
+  z-index: 2;
+}
+
+/* Voice waveform bars */
+@keyframes voiceBar {
+  from { transform: scaleY(0.2); }
+  to   { transform: scaleY(1); }
+}
+
+/* Ticker scroll */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* StyleSense theme flash */
+@keyframes themeFlash {
+  0%   { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+
+/* StyleSense pill bounce */
+@keyframes pillBounce {
+  0%   { transform: scale(0.85); opacity: 0; }
+  60%  { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Spinner (used by VoiceExpressOverlay) */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
