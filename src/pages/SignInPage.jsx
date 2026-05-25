@@ -127,15 +127,10 @@ export default function SignInPage() {
   }, [])
   function handleGoogleButtonClick() {
     const clientId = '765922098744-muhekk0quv3k34tc4oljbi3b09k9in9u.apps.googleusercontent.com'
-    const redirectUri = encodeURIComponent(window.location.origin + '/signin')
-    const scope = encodeURIComponent('email profile')
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`
-    
-    const width = 500
-    const height = 600
-    const left = window.screenX + (window.outerWidth - width) / 2
-    const top = window.screenY + (window.outerHeight - height) / 2
-    window.open(authUrl, 'Google Sign In', `width=${width},height=${height},left=${left},top=${top}`)
+    const redirectUri = encodeURIComponent('https://subway-ai-9gfb.vercel.app/signin')
+    const scope = encodeURIComponent('email profile openid')
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=select_account`
+    window.location.href = authUrl
   }
   function switchMode(m) {
     setMode(m)
