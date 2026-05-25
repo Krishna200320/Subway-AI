@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import { useAuth } from '../context/AuthContext'
+
+const GOOGLE_CLIENT_ID = '765922098744-muhekk0quv3k34tc4oljbi3b09k9in9u.apps.googleusercontent.com'
 
 function getPasswordStrength(pw) {
   if (!pw) return null
@@ -71,7 +73,7 @@ function InputField({ label, id, type = 'text', value, onChange, placeholder, re
 
 export default function SignInPage() {
   const navigate = useNavigate()
-  const { signIn, register } = useAuth()
+  const { signIn, register, googleSignIn } = useAuth()
 
   const [mode, setMode] = useState('signin')
   const [error, setError] = useState('')
@@ -97,6 +99,40 @@ export default function SignInPage() {
   const [subscribeOffers, setSubscribeOffers] = useState(false)
 
   const strength = getPasswordStrength(regPassword)
+
+  function decodeJWT(token) {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(window.atob(base64))
+  }
+
+  function handleGoogleResponse(response) {
+    try {
+      const payload = decodeJWT(response.credential)
+      const name = payload.given_name || payload.name || 'User'
+      const email = payload.email || ''
+      googleSignIn(name, email)
+      navigate('/store-select')
+    } catch {
+      setError('Google sign-in failed. Please try again.')
+    }
+  }
+
+  useEffect(() => {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+      })
+    }
+  }, [])
+
+  function handleGoogleButtonClick() {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt()
+    } else {
+      setError('Google sign-in is not available. Make sure the Google script loaded.')
+    }
+  }
 
   function switchMode(m) {
     setMode(m)
@@ -210,7 +246,7 @@ export default function SignInPage() {
 
               {/* Social buttons */}
               <div className="space-y-3">
-                <button type="button" className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors">
+                <button type="button" onClick={handleGoogleButtonClick} className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors">
                   <GoogleIcon />
                   Continue with Google
                 </button>

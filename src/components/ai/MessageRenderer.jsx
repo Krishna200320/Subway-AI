@@ -1,7 +1,55 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { ALL_ITEMS } from '../../data/menuData'
 import { useCart } from '../../context/CartContext'
 import { useToast } from '../../context/ToastContext'
+
+const mdComponents = {
+  p({ children }) {
+    return <p style={{ marginBottom: 8, fontSize: 13, lineHeight: 1.7, color: '#111827' }}>{children}</p>
+  },
+  strong({ children }) {
+    return <strong style={{ fontWeight: 600, color: '#007A36' }}>{children}</strong>
+  },
+  em({ children }) {
+    return <em style={{ fontStyle: 'italic' }}>{children}</em>
+  },
+  ul({ children }) {
+    return <ul style={{ marginLeft: 16, marginBottom: 8, listStyleType: 'disc', paddingLeft: 4 }}>{children}</ul>
+  },
+  ol({ children }) {
+    return <ol style={{ marginLeft: 16, marginBottom: 8, listStyleType: 'decimal', paddingLeft: 4 }}>{children}</ol>
+  },
+  li({ children }) {
+    return <li style={{ marginBottom: 4, fontSize: 13, lineHeight: 1.7 }}>{children}</li>
+  },
+  h1({ children }) {
+    return <h1 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>{children}</h1>
+  },
+  h2({ children }) {
+    return <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>{children}</h2>
+  },
+  h3({ children }) {
+    return <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>{children}</h3>
+  },
+}
+
+function getFoodEmoji(name) {
+  const n = (name || '').toLowerCase()
+  if (n.includes('tuna')) return '🐟'
+  if (n.includes('turkey')) return '🦃'
+  if (n.includes('chicken') || n.includes('rotisserie')) return '🍗'
+  if (n.includes('veggie') || n.includes('vegetarian') || n.includes('beyond')) return '🥗'
+  if (n.includes('blt') || n.includes('bacon')) return '🥓'
+  if (n.includes('steak') || n.includes('philly')) return '🥩'
+  if (n.includes('meatball')) return '🍖'
+  if (n.includes('pizza')) return '🍕'
+  if (n.includes('seafood') || n.includes('shrimp')) return '🦐'
+  if (n.includes('egg') || n.includes('breakfast')) return '🥚'
+  if (n.includes('club')) return '🥪'
+  if (n.includes('italian') || n.includes('spicy')) return '🌶️'
+  return '🥖'
+}
 
 function findItem(name) {
   if (!name) return null
@@ -114,18 +162,20 @@ function ItemCard({ name, price, calories, compact = false, onChoose }) {
     showToast(`${name} added to cart!`)
   }
 
+  const emoji = getFoodEmoji(name)
+
   return (
-    <div className={`bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 ${compact ? 'w-44' : 'w-full'}`}
-      style={{ scrollSnapAlign: compact ? 'start' : undefined }}>
+    <div className={`bg-white border border-gray-200 overflow-hidden shadow-sm flex-shrink-0 ${compact ? 'w-44' : 'w-full'}`}
+      style={{ borderRadius: 12, scrollSnapAlign: compact ? 'start' : undefined }}>
       {item?.image && (
         <img src={item.image} alt={name} loading="lazy"
           className={`w-full object-cover ${compact ? 'h-28' : 'h-32'}`} />
       )}
       <div className="p-3">
-        <p className="font-bold text-gray-900 text-sm leading-tight">{name}</p>
+        <p className="font-bold text-gray-900 text-sm leading-tight">{emoji} {name}</p>
         <div className="flex items-center gap-2 mt-1 mb-2.5">
           <span className="text-[#009A44] font-bold text-sm">${price.toFixed(2)}</span>
-          <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{calories} cal</span>
+          <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">{calories} cal</span>
         </div>
         <button
           onClick={onChoose || handleAdd}
@@ -243,7 +293,11 @@ export default function MessageRenderer({ content, onReply, isUser }) {
       {blocks.map((block, i) => {
         switch (block.type) {
           case 'text':
-            return <p key={i} className="text-sm" style={{ lineHeight: 1.6 }}>{block.content}</p>
+            return (
+              <div key={i}>
+                <ReactMarkdown components={mdComponents}>{block.content}</ReactMarkdown>
+              </div>
+            )
 
           case 'item':
             return <ItemCard key={i} name={block.name} price={block.price} calories={block.calories} />

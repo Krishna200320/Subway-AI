@@ -45,6 +45,11 @@ export function AuthProvider({ children }) {
     return { success: true }
   }
 
+  function googleSignIn(name, email) {
+    setUser({ name, email, isLoggedIn: true, loginTime: Date.now() })
+    return { success: true }
+  }
+
   function signOut() {
     setUser(null)
     setSelectedStore(null)
@@ -56,7 +61,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, selectedStore, signIn, register, signOut, selectStore }}>
+    <AuthContext.Provider value={{ user, selectedStore, signIn, register, googleSignIn, signOut, selectStore }}>
       {children}
     </AuthContext.Provider>
   )
