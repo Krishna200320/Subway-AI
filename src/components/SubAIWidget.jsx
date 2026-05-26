@@ -94,17 +94,19 @@ export default function SubAIWidget() {
   const { user, selectStore: ctxSelectStore } = useAuth()
   const { messages, isLoading, sendMessage, clearChat } = useAIChat({ isLoggedIn: !!user?.isLoggedIn })
 
-  const [isOpen,     setIsOpen]     = useState(false)
-  const [input,      setInput]      = useState('')
-  const [dealsOpen,  setDealsOpen]  = useState(false)
-  const [copiedCode, setCopiedCode] = useState(null)
+  const [isOpen,      setIsOpen]      = useState(false)
+  const [input,       setInput]       = useState('')
+  const [dealsOpen,   setDealsOpen]   = useState(false)
+  const [copiedCode,  setCopiedCode]  = useState(null)
+  const [isListening, setIsListening] = useState(false)
 
-  const messagesEndRef = useRef(null)
-  const inputRef       = useRef(null)
-  const dealsRef       = useRef(null)
+  const messagesEndRef  = useRef(null)
+  const inputRef        = useRef(null)
+  const dealsRef        = useRef(null)
+  const recognitionRef  = useRef(null)
 
   const pathname   = location.pathname
-  const shouldShow = !user?.isLoggedIn
+  const shouldShow = true
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -147,6 +149,33 @@ export default function SubAIWidget() {
   function handleSelectStore(storeId) {
     const store = stores.find(s => s.id === storeId)
     if (store) { ctxSelectStore(store); navigate('/menu') }
+  }
+
+  function handleVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) return
+
+    if (isListening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognitionRef.current = recognition
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    recognition.onstart  = () => setIsListening(true)
+    recognition.onend    = () => setIsListening(false)
+    recognition.onerror  = () => setIsListening(false)
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      setInput(prev => (prev ? prev + ' ' : '') + transcript)
+      inputRef.current?.focus()
+    }
+
+    recognition.start()
   }
 
   const greeting = pathname === '/store-select'
@@ -304,6 +333,21 @@ export default function SubAIWidget() {
             disabled={isLoading}
             className="flex-1 text-sm bg-transparent focus:outline-none text-gray-800 placeholder-gray-400 disabled:opacity-50"
           />
+
+          <button
+            onClick={handleVoice}
+            title={isListening ? 'Stop listening' : 'Voice input'}
+            className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-all flex-shrink-0 shadow-sm ${
+              isListening ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+            </svg>
+          </button>
 
           <button
             onClick={() => handleSend()}
