@@ -92,7 +92,7 @@ export default function SubAIWidget() {
   const navigate                              = useNavigate()
   const location                              = useLocation()
   const { user, selectStore: ctxSelectStore } = useAuth()
-  const { messages, isLoading, sendMessage, clearChat } = useAIChat({ isLoggedIn: false })
+  const { messages, isLoading, sendMessage, clearChat } = useAIChat({ isLoggedIn: !!user?.isLoggedIn })
 
   const [isOpen,     setIsOpen]     = useState(false)
   const [input,      setInput]      = useState('')
