@@ -100,21 +100,16 @@ export default function SubAIWidget() {
   const [copiedCode,  setCopiedCode]  = useState(null)
   const [isListening, setIsListening] = useState(false)
 
-  const messagesEndRef  = useRef(null)
-  const inputRef        = useRef(null)
-  const dealsRef        = useRef(null)
-  const recognitionRef  = useRef(null)
+  const messagesEndRef = useRef(null)
+  const inputRef       = useRef(null)
+  const dealsRef       = useRef(null)
+  const recognitionRef = useRef(null)
 
-  const pathname   = location.pathname
-  const shouldShow = true
+  const pathname = location.pathname
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
-
-  useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 80)
-  }, [isOpen])
 
   useEffect(() => {
     if (!dealsOpen) return
@@ -124,8 +119,6 @@ export default function SubAIWidget() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [dealsOpen])
-
-  if (!shouldShow) return null
 
   function handleSend(override) {
     const msg = (override ?? input).trim()
@@ -173,6 +166,7 @@ export default function SubAIWidget() {
       const transcript = e.results[0][0].transcript
       setInput(prev => (prev ? prev + ' ' : '') + transcript)
       inputRef.current?.focus()
+      setIsOpen(true)
     }
 
     recognition.start()
@@ -186,44 +180,129 @@ export default function SubAIWidget() {
 
   return (
     <>
+      {/* Backdrop */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-30 pointer-events-none" />
+        <div
+          className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-30"
+          onClick={() => setIsOpen(false)}
+        />
       )}
 
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2.5 w-[min(580px,90vw)]">
+      {/* Fixed bottom container */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 flex flex-col items-center pointer-events-none">
 
-        {/* ── Chat panel ── */}
-        {isOpen && (
-          <div
-            className="w-full bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
-            style={{ maxHeight: '420px', animation: 'subai-slide-up 0.22s cubic-bezier(0.16,1,0.3,1)' }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-[#534AB7]/8 to-purple-50/60 flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#534AB7] flex items-center justify-center shadow-sm">
-                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+        {/* ── Chat panel — slides up above the bar ── */}
+        <div
+          className="w-[min(620px,96vw)] pointer-events-auto"
+          style={{
+            transform: isOpen ? 'translateY(0)' : 'translateY(8px)',
+            opacity: isOpen ? 1 : 0,
+            pointerEvents: isOpen ? 'auto' : 'none',
+            transition: 'transform 0.26s cubic-bezier(0.16,1,0.3,1), opacity 0.2s ease',
+          }}
+        >
+          <div className="bg-white rounded-t-2xl shadow-2xl border border-gray-200 border-b-0 flex flex-col overflow-hidden" style={{ maxHeight: '460px' }}>
+
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-[#534AB7] flex items-center justify-center shadow-sm flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round"
                       d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
-                <div>
-                  <p className="font-bold text-gray-900 text-sm leading-tight">SubAI</p>
-                  <p className="text-[10px] text-gray-400 leading-tight">Subway's AI assistant</p>
-                </div>
+                <span className="font-bold text-gray-900 text-sm">SubAI</span>
+                <span className="text-[10px] text-gray-400 hidden sm:inline">· Subway's AI assistant</span>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={clearChat} className="text-gray-400 hover:text-gray-600 text-xs transition-colors">Clear</button>
-                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <button onClick={clearChat} className="text-gray-400 hover:text-gray-600 text-xs transition-colors">
+                  Clear
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+                >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
             </div>
 
+            {/* Quick action pills — only when no conversation yet */}
+            {messages.length === 0 && !isLoading && (
+              <div className="flex items-center gap-2 flex-wrap px-4 pt-3 pb-1">
+                {/* View Menu */}
+                <button
+                  onClick={() => navigate('/menu')}
+                  className="bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-100 transition-all active:scale-95"
+                >
+                  <svg className="w-3 h-3 text-[#009A44]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  View Menu
+                </button>
+
+                {/* Current Deals */}
+                <div className="relative" ref={dealsRef}>
+                  <button
+                    onClick={() => setDealsOpen(o => !o)}
+                    className="bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-100 transition-all active:scale-95"
+                  >
+                    <svg className="w-3 h-3 text-[#FFCC00]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.79 2.96L15.27 7.98 21 8.84l-4.5 4.38 1.06 6.18L12 16.66l-5.56 2.74 1.06-6.18L3 8.84l5.73-.86z"/>
+                    </svg>
+                    Current Deals
+                    <svg className={`w-2.5 h-2.5 text-gray-400 transition-transform duration-200 ${dealsOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {dealsOpen && (
+                    <div className="absolute bottom-full mb-2 left-0 w-[280px] bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 px-1">Active Promotions</p>
+                      <div className="space-y-1.5">
+                        {ACTIVE_PROMOS.map(promo => (
+                          <div key={promo.code} className="flex items-start gap-2 p-2 rounded-xl hover:bg-gray-50 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 leading-tight">{promo.title}</p>
+                              <p className="text-xs text-gray-500 mt-0.5 leading-snug">{promo.description}</p>
+                            </div>
+                            <button
+                              onClick={() => copyCode(promo.code)}
+                              className={`flex-shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all ${
+                                copiedCode === promo.code
+                                  ? 'bg-[#009A44] text-white scale-95'
+                                  : 'bg-[#FFCC00] text-[#7A5C00] hover:bg-[#f5c100] active:scale-95'
+                              }`}
+                            >
+                              {copiedCode === promo.code ? '✓ Copied' : promo.code}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Nutrition Info */}
+                <button
+                  onClick={() => handleSend('Tell me about the healthiest and lowest calorie options at Subway')}
+                  className="bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-100 transition-all active:scale-95"
+                >
+                  <svg className="w-3 h-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  Nutrition Info
+                </button>
+              </div>
+            )}
+
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 min-h-0">
               {messages.length === 0 && (
                 <div className="flex justify-start mb-3">
                   <div className="w-6 h-6 rounded-full bg-[#534AB7] flex items-center justify-center text-white text-[10px] font-black mr-2 flex-shrink-0 mt-1">S</div>
@@ -244,140 +323,55 @@ export default function SubAIWidget() {
               <div ref={messagesEndRef} />
             </div>
           </div>
-        )}
+        </div>
 
-        {/* ── Quick action pills ── */}
-        {!isOpen && <div className="flex items-center gap-2 flex-wrap justify-center">
-          {/* View Menu */}
-          <button
-            onClick={() => navigate('/menu')}
-            className="bg-white border border-gray-200 rounded-full px-3.5 py-2 text-sm font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all active:scale-95"
-          >
-            <svg className="w-3.5 h-3.5 text-[#009A44]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            View Menu
-          </button>
+        {/* ── Persistent bottom bar — always visible ── */}
+        <div className="w-[min(620px,96vw)] pointer-events-auto bg-white border border-gray-200 border-b-0 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-3 pt-3 pb-4">
+          <div className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#534AB7]/30 transition-all">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => { if (messages.length > 0) setIsOpen(true) }}
+              placeholder="Ask anything — menu, deals, nutrition…"
+              disabled={isLoading}
+              className="flex-1 text-sm bg-transparent focus:outline-none text-gray-800 placeholder-gray-400 disabled:opacity-50"
+            />
 
-          {/* Current Deals */}
-          <div className="relative" ref={dealsRef}>
+            {/* Mic button */}
             <button
-              onClick={() => setDealsOpen(o => !o)}
-              className="bg-white border border-gray-200 rounded-full px-3.5 py-2 text-sm font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all active:scale-95"
+              onClick={handleVoice}
+              title={isListening ? 'Stop listening' : 'Voice input'}
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
+                isListening
+                  ? 'bg-red-500 text-white shadow-md'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'
+              }`}
             >
-              <svg className="w-3.5 h-3.5 text-[#FFCC00]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.79 2.96L15.27 7.98 21 8.84l-4.5 4.38 1.06 6.18L12 16.66l-5.56 2.74 1.06-6.18L3 8.84l5.73-.86z"/>
-              </svg>
-              Current Deals
-              <svg className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${dealsOpen ? 'rotate-180' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
               </svg>
             </button>
 
-            {dealsOpen && (
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-[280px] bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 px-1">Active Promotions</p>
-                <div className="space-y-1.5">
-                  {ACTIVE_PROMOS.map(promo => (
-                    <div key={promo.code} className="flex items-start gap-2 p-2 rounded-xl hover:bg-gray-50 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 leading-tight">{promo.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{promo.description}</p>
-                      </div>
-                      <button
-                        onClick={() => copyCode(promo.code)}
-                        className={`flex-shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all ${
-                          copiedCode === promo.code
-                            ? 'bg-[#009A44] text-white scale-95'
-                            : 'bg-[#FFCC00] text-[#7A5C00] hover:bg-[#f5c100] active:scale-95'
-                        }`}
-                      >
-                        {copiedCode === promo.code ? '✓ Copied' : promo.code}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Send button */}
+            <button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || isLoading}
+              className="w-8 h-8 rounded-full bg-[#534AB7] text-white flex items-center justify-center disabled:opacity-30 hover:bg-[#453da0] active:scale-90 transition-all flex-shrink-0 shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+              </svg>
+            </button>
           </div>
 
-          {/* Nutrition Info */}
-          <button
-            onClick={() => handleSend('Tell me about the healthiest and lowest calorie options at Subway')}
-            className="bg-white border border-gray-200 rounded-full px-3.5 py-2 text-sm font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all active:scale-95"
-          >
-            <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-            Nutrition Info
-          </button>
-        </div>}
-
-        {/* ── Input bar ── */}
-        {!isOpen && <>
-        <div className="w-full flex items-center gap-2.5 bg-white border-2 border-[#534AB7]/25 rounded-full px-4 py-2.5 shadow-lg focus-within:border-[#534AB7]/60 focus-within:shadow-[0_0_0_3px_rgba(83,74,183,0.1)] transition-all">
-          {/* Sparkle icon */}
-          <svg className="w-5 h-5 text-[#534AB7] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
-
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything — menu, deals, nutrition…"
-            disabled={isLoading}
-            className="flex-1 text-sm bg-transparent focus:outline-none text-gray-800 placeholder-gray-400 disabled:opacity-50"
-          />
-
-          <button
-            onClick={handleVoice}
-            title={isListening ? 'Stop listening' : 'Voice input'}
-            className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-all flex-shrink-0 shadow-sm ${
-              isListening ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
-            </svg>
-          </button>
-
-          <button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || isLoading}
-            className="w-9 h-9 rounded-full bg-[#534AB7] text-white flex items-center justify-center disabled:opacity-35 hover:bg-[#453da0] active:scale-95 transition-all flex-shrink-0 shadow-md"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-          </button>
+          <p className="text-center text-[10px] text-gray-400 mt-2">SubAI · Subway's AI assistant</p>
         </div>
 
-        <div className="flex items-center justify-center gap-3 pb-0.5">
-          <span className="text-[9px] text-gray-400 font-semibold uppercase tracking-wide">Powered by</span>
-          {[
-            { label: 'SubAssist', desc: 'Search & Guide' },
-            { label: 'ToneSense', desc: 'Tone Engine'    },
-            { label: 'BrainMenu', desc: 'Menu Knowledge' },
-          ].map(({ label, desc }) => (
-            <div key={label} className="flex items-center gap-1">
-              <svg className="w-2.5 h-2.5 text-[#534AB7] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              <span className="text-[9px] text-gray-500 font-semibold">{label}</span>
-              <span className="text-[9px] text-gray-400 hidden sm:inline">· {desc}</span>
-            </div>
-          ))}
-        </div>
-        </>}
       </div>
 
       <style>{`
