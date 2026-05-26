@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAIChat } from '../ai/useAIChat'
+import SubIngredientBuilder from './SubIngredientBuilder'
 
 export default function SubAIWidget() {
   const navigate = useNavigate()
@@ -88,9 +89,20 @@ export default function SubAIWidget() {
                 {msg.role !== 'user' && (
                   <div className="w-6 h-6 rounded-full bg-[#009A44] flex items-center justify-center text-white text-[10px] font-black mr-2 flex-shrink-0 mt-1">S</div>
                 )}
-                <div className={`px-3.5 py-2.5 rounded-2xl text-sm max-w-[85%] ${msg.role === 'user' ? 'bg-[#009A44] text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                  {msg.content}
-                </div>
+                {msg.buildSub ? (
+                  <div className="flex flex-col gap-2 max-w-[92%] min-w-0">
+                    {msg.content && (
+                      <div className="px-3.5 py-2.5 rounded-2xl text-sm bg-gray-100 text-gray-800 rounded-bl-sm">
+                        {msg.content}
+                      </div>
+                    )}
+                    <SubIngredientBuilder subName={msg.buildSub} />
+                  </div>
+                ) : (
+                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm max-w-[85%] ${msg.role === 'user' ? 'bg-[#009A44] text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
+                    {msg.content}
+                  </div>
+                )}
               </div>
             ))}
             {isLoading && (

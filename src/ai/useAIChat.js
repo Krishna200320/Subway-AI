@@ -10,35 +10,45 @@ import { useToast } from '../context/ToastContext'
 const WIDGET_MSGS_KEY = 'subway_widget_msgs'
 
 function parseAIResponse(text) {
+  // Check for [BUILD_SUB: name] pattern
+  const buildSubRegex = /\[BUILD_SUB:\s*([^\]]+)\]/i
+  const buildSubMatch = text.match(buildSubRegex)
+  let buildSub = null
+  let workingText = text
+  if (buildSubMatch) {
+    buildSub    = buildSubMatch[1].trim()
+    workingText = text.replace(buildSubMatch[0], '').trim()
+  }
+
   // Check for existing ACTION: line
-  const lines     = text.split('\n')
+  const lines     = workingText.split('\n')
   const actionIdx = lines.findIndex(l => l.trim().startsWith('ACTION:'))
 
   if (actionIdx !== -1) {
     const actionStr = lines[actionIdx].trim().replace(/^ACTION:\s*/, '')
     const cleanText = lines.filter((_, i) => i !== actionIdx).join('\n').trim()
     try {
-      return { text: cleanText || text, action: JSON.parse(actionStr) }
+      return { text: cleanText || workingText, action: JSON.parse(actionStr), buildSub }
     } catch {
-      return { text, action: null }
+      return { text: workingText, action: null, buildSub }
     }
   }
 
   // Check for prefillBuilder JSON block at end of message
   const prefillRegex = /\{[\s\S]*?"action"\s*:\s*"prefillBuilder"[\s\S]*?\}\s*$/
-  const prefillMatch = text.match(prefillRegex)
+  const prefillMatch = workingText.match(prefillRegex)
   if (prefillMatch) {
     const jsonStr   = prefillMatch[0].trim()
-    const cleanText = text.slice(0, text.lastIndexOf(prefillMatch[0])).trim()
+    const cleanText = workingText.slice(0, workingText.lastIndexOf(prefillMatch[0])).trim()
     try {
       const action = JSON.parse(jsonStr)
-      return { text: cleanText || text, action }
+      return { text: cleanText || workingText, action, buildSub }
     } catch {
-      return { text, action: null }
+      return { text: workingText, action: null, buildSub }
     }
   }
 
-  return { text, action: null }
+  return { text: workingText, action: null, buildSub }
 }
 
 export function useAIChat({ isLoggedIn = true, onPrefillBuilder = null, getCurrentBuild = null } = {}) {
@@ -109,9 +119,9 @@ export function useAIChat({ isLoggedIn = true, onPrefillBuilder = null, getCurre
     try {
       const data = await callClaude(apiMessages, systemPrompt)
       const raw  = data.content
-      const { text, action } = parseAIResponse(raw)
+      const { text, action, buildSub } = parseAIResponse(raw)
 
-      const assistantMsg  = { role: 'assistant', content: text || raw }
+      const assistantMsg  = { role: 'assistant', content: text || raw, ...(buildSub && { buildSub }) }
       const finalMessages = [...updatedHistory, assistantMsg]
       setMessages(finalMessages)
 
