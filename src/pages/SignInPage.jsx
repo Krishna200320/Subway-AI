@@ -125,6 +125,28 @@ export default function SignInPage() {
       })
     }
   }, [])
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.substring(1))
+      const accessToken = params.get('access_token')
+      
+      if (accessToken) {
+        fetch(`https://www.googleapis.com/oauth2/v2/userinfo`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+          const name = data.given_name || data.name || 'User'
+          const email = data.email || ''
+          googleSignIn(name, email)
+          navigate('/store-select')
+        })
+        .catch(() => setError('Google sign-in failed. Please try again.'))
+      }
+    }
+  }, [])
   function handleGoogleButtonClick() {
     const clientId = '765922098744-muhekk0quv3k34tc4oljbi3b09k9in9u.apps.googleusercontent.com'
     const redirectUri = encodeURIComponent('https://subway-ai-9gfb.vercel.app/signin')
