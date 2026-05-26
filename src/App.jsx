@@ -7,7 +7,7 @@ import { DemoProvider } from './context/DemoContext'
 import { GhostNavProvider } from './context/GhostNavContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
-import AIChat from './components/AIChat'
+
 import SubAIWidget from './components/SubAIWidget'
 import DemoMode from './components/DemoMode'
 import HomePage from './pages/HomePage'
@@ -35,7 +35,7 @@ export default function App() {
                     <Route path="/cart"         element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
                     <Route path="/build"        element={<ProtectedRoute><BuildPage /></ProtectedRoute>} />
                   </Routes>
-                  <AIChat />
+                 
                   <SubAIWidget />
                   <DemoMode />
                 </BuilderProvider>
