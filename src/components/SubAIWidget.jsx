@@ -247,7 +247,7 @@ export default function SubAIWidget() {
         )}
 
         {/* ── Quick action pills ── */}
-        <div className="flex items-center gap-2 flex-wrap justify-center">
+        {!isOpen && <div className="flex items-center gap-2 flex-wrap justify-center">
           {/* View Menu */}
           <button
             onClick={() => navigate('/menu')}
@@ -314,9 +314,10 @@ export default function SubAIWidget() {
             </svg>
             Nutrition Info
           </button>
-        </div>
+        </div>}
 
         {/* ── Input bar ── */}
+        {!isOpen && <>
         <div className="w-full flex items-center gap-2.5 bg-white border-2 border-[#534AB7]/25 rounded-full px-4 py-2.5 shadow-lg focus-within:border-[#534AB7]/60 focus-within:shadow-[0_0_0_3px_rgba(83,74,183,0.1)] transition-all">
           {/* Sparkle icon */}
           <svg className="w-5 h-5 text-[#534AB7] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -376,6 +377,7 @@ export default function SubAIWidget() {
             </div>
           ))}
         </div>
+        </>}
       </div>
 
       <style>{`
