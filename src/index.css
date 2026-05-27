@@ -88,3 +88,12 @@
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* Sandwich layer slide-in animation */
+@keyframes layerSlideIn {
+  from { transform: translateX(-20px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.layer-slide-in {
+  animation: layerSlideIn 0.3s ease forwards;
+}

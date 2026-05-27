@@ -1,182 +1,238 @@
 import { useState, useRef, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAIChat } from '../ai/useAIChat'
 import SubIngredientBuilder from './SubIngredientBuilder'
 
-// ─── Ingredient detection helpers ────────────────────────────────────────────
+// ─── MenuItemCards ────────────────────────────────────────────────────────────
 
-const VEGGIE_KEYWORDS = {
-  lettuce:  ['lettuce'],
-  tomato:   ['tomato'],
-  onion:    ['onion'],
-  cucumber: ['cucumber'],
-  peppers:  ['pepper'],
-  spinach:  ['spinach'],
-  olives:   ['olive'],
+const FOOD_IMAGES = {
+  'veggie delite':      'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300',
+  'turkey breast':      'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=300',
+  'rotisserie chicken': 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=300',
+  'meatball marinara':  'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=300',
+  'steak and cheese':   'https://images.unsplash.com/photo-1558030006-450675393462?w=300',
+}
+const DEFAULT_IMG = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'
+
+const NUTRITION_MAP = {
+  'veggie delite':      { protein: 8,  fat: 2,  isVegetarian: true,  hasCheese: false },
+  'turkey breast':      { protein: 18, fat: 3,  isVegetarian: false, hasCheese: false },
+  'rotisserie chicken': { protein: 24, fat: 5,  isVegetarian: false, hasCheese: false },
+  'meatball marinara':  { protein: 21, fat: 18, isVegetarian: false, hasCheese: true  },
+  'steak and cheese':   { protein: 26, fat: 12, isVegetarian: false, hasCheese: true  },
+}
+const DEFAULT_NUTRITION = { protein: 18, fat: 8, isVegetarian: false, hasCheese: false }
+
+function resolveImage(name) {
+  const key = Object.keys(FOOD_IMAGES).find(k => name.toLowerCase().includes(k))
+  return key ? FOOD_IMAGES[key] : DEFAULT_IMG
+}
+function resolveNutrition(name) {
+  const key = Object.keys(NUTRITION_MAP).find(k => name.toLowerCase().includes(k))
+  return key ? NUTRITION_MAP[key] : DEFAULT_NUTRITION
 }
 
-const SUB_PRESETS = {
-  'bmt':        { protein: true, cheese: 'provolone',  veggies: ['lettuce','tomato','onion'],              sauce: 'chipotle' },
-  'chicken':    { protein: true, cheese: 'pepperjack', veggies: ['lettuce','tomato','peppers'],             sauce: 'chipotle' },
-  'tuna':       { protein: true, cheese: 'american',   veggies: ['lettuce','tomato','cucumber'],            sauce: 'ranch' },
-  'veggie':     { protein: false,cheese: 'swiss',      veggies: ['lettuce','tomato','cucumber','peppers','spinach'], sauce: 'honey mustard' },
-  'meatball':   { protein: true, cheese: 'provolone',  veggies: ['onion','peppers'],                       sauce: null },
-  'steak':      { protein: true, cheese: 'american',   veggies: ['lettuce','tomato','onion','peppers'],     sauce: 'chipotle' },
-  'turkey':     { protein: true, cheese: 'american',   veggies: ['lettuce','tomato'],                      sauce: 'ranch' },
-  'rotisserie': { protein: true, cheese: 'swiss',      veggies: ['lettuce','tomato','cucumber'],            sauce: 'ranch' },
-}
+const FILTER_OPTIONS = ['Low Calorie', 'High Protein', 'Vegetarian', 'No Cheese']
 
-function detectSandwich(messages) {
-  const assistant = messages.filter(m => m.role === 'assistant')
-  if (!assistant.length) return { protein: null, cheese: null, veggies: [], sauce: null }
+function MenuItemCards({ items }) {
+  const navigate = useNavigate()
+  const [activeFilter, setActiveFilter] = useState(null)
 
-  const allText = assistant.map(m => m.content).join(' ').toLowerCase()
-  const result  = { protein: null, cheese: null, veggies: [], sauce: null }
+  const enriched = items.map(item => ({
+    ...item,
+    image:     resolveImage(item.name),
+    nutrition: resolveNutrition(item.name),
+  }))
 
-  // ITEM: pattern → preset
-  const itemMatch = allText.match(/item:\s*([^\n,!.]+)/)
-  if (itemMatch) {
-    const name = itemMatch[1].trim()
-    for (const [key, preset] of Object.entries(SUB_PRESETS)) {
-      if (name.includes(key)) { Object.assign(result, preset); break }
-    }
-  }
-
-  // BUILD_SUB pattern → preset
-  const buildSubMsg = assistant.find(m => m.buildSub)
-  if (buildSubMsg && !itemMatch) {
-    const name = buildSubMsg.buildSub.toLowerCase()
-    for (const [key, preset] of Object.entries(SUB_PRESETS)) {
-      if (name.includes(key)) { Object.assign(result, preset); break }
-    }
-  }
-
-  // Keyword scan (additive fill-in)
-  if (!result.protein) {
-    result.protein = ['chicken','steak','tuna','meatball','turkey','ham','salami','veggie patty','rotisserie'].some(k => allText.includes(k))
-  }
-  if (!result.cheese) {
-    const found = ['provolone','pepperjack','swiss','cheddar','american'].find(k => allText.includes(k))
-    result.cheese = found || (allText.includes('cheese') ? 'american' : null)
-  }
-  if (!result.veggies.length) {
-    result.veggies = Object.entries(VEGGIE_KEYWORDS)
-      .filter(([, kws]) => kws.some(k => allText.includes(k)))
-      .map(([name]) => name)
-  }
-  if (!result.sauce) {
-    result.sauce = ['ranch','chipotle','honey mustard','sweet onion','buffalo','mayo','mustard'].find(k => allText.includes(k)) || null
-  }
-
-  return result
-}
-
-// ─── Sandwich visualization ───────────────────────────────────────────────────
-
-function SandwichViz({ sandwich }) {
-  const { protein, cheese, veggies, sauce } = sandwich
-  const hasLettuce  = veggies.includes('lettuce')
-  const hasTomato   = veggies.includes('tomato')
-  const hasOnion    = veggies.includes('onion')
-  const hasOtherVeg = veggies.some(v => !['lettuce','tomato','onion'].includes(v))
+  const visible = enriched.filter(item => {
+    if (!activeFilter) return true
+    const cal = parseInt(item.calories)
+    if (activeFilter === 'Low Calorie')  return cal < 400
+    if (activeFilter === 'High Protein') return item.nutrition.protein >= 20
+    if (activeFilter === 'Vegetarian')   return item.nutrition.isVegetarian
+    if (activeFilter === 'No Cheese')    return !item.nutrition.hasCheese
+    return true
+  })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+    <div>
+      {/* Filter pills */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+        {FILTER_OPTIONS.map(f => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(prev => prev === f ? null : f)}
+            style={{
+              fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 999,
+              border: '1.5px solid', cursor: 'pointer', transition: 'all 0.2s',
+              borderColor: activeFilter === f ? '#009A44' : '#E5E7EB',
+              background:  activeFilter === f ? '#009A44' : '#F9FAFB',
+              color:       activeFilter === f ? '#fff'    : '#6B7280',
+            }}
+          >{f}</button>
+        ))}
+      </div>
 
-      {/* Top bread */}
-      <div style={{ width: '88%', height: 14, borderRadius: '10px 10px 3px 3px',
-        background: 'linear-gradient(180deg,#F2D898 0%,#D4A15E 100%)',
-        boxShadow: 'inset 0 -2px 0 rgba(0,0,0,0.09), 0 1px 0 #c8934e' }} />
+      {/* Horizontal card row */}
+      <div className="scrollbar-hide" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+        {visible.length === 0
+          ? <p style={{ fontSize: 12, color: '#9CA3AF', padding: '6px 2px' }}>No items match this filter.</p>
+          : visible.map((item, i) => (
+          <div key={item.name} style={{
+            minWidth: 160, width: 160, borderRadius: 12, overflow: 'hidden', flexShrink: 0,
+            border: '1px solid #E5E7EB', background: '#fff',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          }}>
+            {/* Image */}
+            <div style={{ position: 'relative' }}>
+              <img
+                src={item.image} alt={item.name}
+                onError={e => { e.target.src = DEFAULT_IMG }}
+                style={{ width: 160, height: 100, objectFit: 'cover', display: 'block' }}
+              />
+              {i === 0 && (
+                <div style={{
+                  position: 'absolute', top: 6, left: 6, borderRadius: 999,
+                  background: '#009A44', color: '#fff', fontSize: 8, fontWeight: 700, padding: '2px 6px',
+                }}>★ AI Top Pick</div>
+              )}
+            </div>
 
-      {/* Sauce drizzle */}
-      {sauce && (
-        <div style={{ width: '82%', height: 4, borderRadius: 2,
-          background: 'repeating-linear-gradient(90deg,rgba(255,183,77,.85) 0px,rgba(255,183,77,.85) 8px,rgba(255,213,79,.45) 8px,rgba(255,213,79,.45) 14px)',
-          transition: 'opacity .4s' }} />
-      )}
-
-      {/* Protein */}
-      {protein && (
-        <div style={{ width: '84%', height: 10, borderRadius: 3,
-          background: 'linear-gradient(180deg,#B85C38 0%,#7A3B10 100%)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,.15)', transition: 'opacity .4s' }} />
-      )}
-
-      {/* Cheese */}
-      {cheese && (
-        <div style={{ width: '86%', height: 6, borderRadius: '2px 2px 6px 6px',
-          background: 'linear-gradient(180deg,#FFD54F 0%,#FFA000 100%)',
-          transition: 'opacity .4s' }} />
-      )}
-
-      {/* Lettuce – wavy top via border-radius asymmetry */}
-      {hasLettuce && (
-        <div style={{ width: '83%', height: 9, borderRadius: '6px 3px 1px 4px',
-          background: 'linear-gradient(180deg,#81C784 0%,#388E3C 100%)',
-          borderBottom: '2px solid #2E7D32', transition: 'opacity .4s' }} />
-      )}
-
-      {/* Tomato circles */}
-      {hasTomato && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, transition: 'opacity .4s' }}>
-          {[0,1,2,3,4].map(i => (
-            <div key={i} style={{ width: 11, height: 8, flexShrink: 0,
-              background: 'radial-gradient(circle at 35% 35%,#FFCDD2,#C62828)',
-              borderRadius: '50%', border: '1px solid rgba(198,40,40,.3)' }} />
-          ))}
-        </div>
-      )}
-
-      {/* Onion */}
-      {hasOnion && (
-        <div style={{ width: '76%', height: 4, borderRadius: 2,
-          background: 'rgba(186,104,200,.6)', transition: 'opacity .4s' }} />
-      )}
-
-      {/* Other veggies (cucumber / peppers / spinach / olives) */}
-      {hasOtherVeg && (
-        <div style={{ width: '80%', height: 5, borderRadius: 2,
-          background: 'repeating-linear-gradient(90deg,#66BB6A 0px,#66BB6A 5px,#A5D6A7 5px,#A5D6A7 11px)',
-          transition: 'opacity .4s' }} />
-      )}
-
-      {/* Bottom bread */}
-      <div style={{ width: '92%', height: 14, borderRadius: '3px 3px 10px 10px',
-        background: 'linear-gradient(180deg,#C49A50 0%,#8A5C1A 100%)',
-        boxShadow: '0 3px 6px rgba(0,0,0,.18)' }} />
+            {/* Body */}
+            <div style={{ padding: '8px 10px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3, lineHeight: 1.25 }}>{item.name}</p>
+              <p style={{ fontSize: 9, color: '#9CA3AF', marginBottom: 5, lineHeight: 1.4 }}>
+                {item.calories}cal · {item.nutrition.protein}g protein · {item.nutrition.fat}g fat
+              </p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#009A44', marginBottom: 8 }}>{item.price}</p>
+              <button
+                onClick={() => navigate('/build')}
+                style={{
+                  width: '100%', background: '#009A44', color: '#fff', border: 'none',
+                  fontSize: 11, fontWeight: 700, padding: '7px 0', borderRadius: 8, cursor: 'pointer',
+                }}
+              >Choose This</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-// ─── Step indicator ───────────────────────────────────────────────────────────
+// ─── SandwichBuilder ──────────────────────────────────────────────────────────
 
-function StepIndicator({ sandwich }) {
+const PROTEIN_COLOR_MAP = [
+  { keywords: ['chicken', 'rotisserie'], color: '#C4884F' },
+  { keywords: ['steak'],                 color: '#8B4513' },
+  { keywords: ['tuna'],                  color: '#F4A460' },
+  { keywords: ['veggie', 'vegetarian'],  color: '#4CAF50' },
+]
+
+const SAUCE_COLOR_MAP = [
+  { keyword: 'chipotle',      color: '#A0522D' },
+  { keyword: 'honey mustard', color: '#DAA520' },
+  { keyword: 'ranch',         color: '#EDE8D8' },
+  { keyword: 'buffalo',       color: '#BF3604' },
+  { keyword: 'sauce',         color: '#D4884A' },
+]
+
+function SandwichBuilder({ messages }) {
+  const [layers, setLayers] = useState({
+    protein: null, cheese: false, lettuce: false, tomato: false, onion: false, sauce: null,
+  })
+
+  useEffect(() => {
+    const text = messages.filter(m => m.role === 'assistant').map(m => m.content).join(' ').toLowerCase()
+    const next = { protein: null, cheese: false, lettuce: false, tomato: false, onion: false, sauce: null }
+
+    for (const { keywords, color } of PROTEIN_COLOR_MAP) {
+      if (keywords.some(k => text.includes(k))) { next.protein = color; break }
+    }
+    next.cheese  = text.includes('cheese') || text.includes('american') || text.includes('provolone') || text.includes('pepperjack')
+    next.lettuce = text.includes('lettuce')
+    next.tomato  = text.includes('tomato')
+    next.onion   = text.includes('onion')
+    for (const { keyword, color } of SAUCE_COLOR_MAP) {
+      if (text.includes(keyword)) { next.sauce = color; break }
+    }
+
+    setLayers(next)
+  }, [messages])
+
   const steps = [
     { label: 'Bread',   done: true },
-    { label: 'Protein', done: !!sandwich.protein },
-    { label: 'Cheese',  done: !!sandwich.cheese },
-    { label: 'Veggies', done: sandwich.veggies.length > 0 },
-    { label: 'Sauce',   done: !!sandwich.sauce },
+    { label: 'Protein', done: !!layers.protein },
+    { label: 'Cheese',  done: layers.cheese },
+    { label: 'Veggies', done: layers.lettuce || layers.tomato || layers.onion },
+    { label: 'Sauce',   done: !!layers.sauce },
   ]
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 6 }}>
-      {steps.map((step, i) => (
-        <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{
-            fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 999,
-            whiteSpace: 'nowrap', transition: 'all .4s ease',
-            background: step.done ? '#009A44' : '#F3F4F6',
-            color: step.done ? '#fff' : '#9CA3AF',
-          }}>
-            {step.done ? '✓ ' : ''}{step.label}
-          </span>
-          {i < steps.length - 1 && (
-            <span style={{ fontSize: 8, color: step.done ? '#009A44' : '#D1D5DB', transition: 'color .4s' }}>›</span>
-          )}
-        </div>
-      ))}
+    <div style={{
+      flexShrink: 0, borderBottom: '1px solid #F3F4F6', padding: '8px 16px 10px',
+      background: 'linear-gradient(180deg,#FFFBF0 0%,#fff 100%)',
+    }}>
+      {/* Sandwich cross-section — rendered top-to-bottom */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+        {/* Top bread */}
+        <div style={{
+          width: 200, height: 24, borderRadius: '20px 20px 0 0',
+          background: 'linear-gradient(180deg,#A07840 0%,#D4A574 100%)',
+          borderTop: '3px solid #8B6530',
+        }} />
+
+        {/* Onion — topmost filling layer */}
+        {layers.onion   && <div className="layer-slide-in" style={{ width: 185, height: 6,  marginTop: 2, background: '#9C27B0', borderRadius: 3, opacity: 0.85 }} />}
+        {/* Tomato */}
+        {layers.tomato  && <div className="layer-slide-in" style={{ width: 188, height: 8,  marginTop: 2, background: '#E53935', borderRadius: 2 }} />}
+        {/* Lettuce */}
+        {layers.lettuce && <div className="layer-slide-in" style={{ width: 195, height: 12, marginTop: 2, background: '#4CAF50', borderRadius: '6px 3px 2px 5px', borderBottom: '2px solid #2E7D32' }} />}
+        {/* Cheese */}
+        {layers.cheese  && <div className="layer-slide-in" style={{ width: 190, height: 8,  marginTop: 2, background: '#FFD700', borderRadius: 2, boxShadow: '0 1px 0 #FFA000' }} />}
+        {/* Protein */}
+        {layers.protein && <div className="layer-slide-in" style={{ width: 185, height: 16, marginTop: 2, background: layers.protein, borderRadius: 3, boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18)' }} />}
+        {/* Sauce */}
+        {layers.sauce   && <div className="layer-slide-in" style={{ width: 190, height: 8,  marginTop: 2, background: layers.sauce, borderRadius: 2, opacity: 0.9 }} />}
+
+        {/* Bottom bread */}
+        <div style={{
+          width: 200, height: 20, marginTop: 2, borderRadius: '0 0 20px 20px',
+          background: 'linear-gradient(180deg,#D4A574 0%,#A07840 100%)',
+          boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+        }} />
+      </div>
+
+      {/* Step progress circles */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8 }}>
+        {steps.map((step, i) => (
+          <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%',
+                border: `2px solid ${step.done ? '#009A44' : '#E5E7EB'}`,
+                background: step.done ? '#009A44' : '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.35s ease',
+              }}>
+                {step.done && <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              </div>
+              <span style={{
+                fontSize: 8, fontWeight: 600, whiteSpace: 'nowrap', transition: 'color 0.35s',
+                color: step.done ? '#009A44' : '#9CA3AF',
+              }}>{step.label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{
+                width: 14, height: 1.5, marginBottom: 14, transition: 'background 0.35s',
+                background: step.done ? '#009A44' : '#E5E7EB',
+              }} />
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -188,20 +244,15 @@ export default function SubAIWidget() {
   const { user } = useAuth()
   const { messages, isLoading, sendMessage, clearChat } = useAIChat({ isLoggedIn: !!user?.isLoggedIn })
 
-  const [isOpen, setIsOpen]         = useState(false)
-  const [input, setInput]           = useState('')
+  const [isOpen, setIsOpen]           = useState(false)
+  const [input, setInput]             = useState('')
   const [isListening, setIsListening] = useState(false)
-  const [sandwich, setSandwich]     = useState({ protein: null, cheese: null, veggies: [], sauce: null })
   const messagesEndRef = useRef(null)
   const inputRef       = useRef(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
-
-  useEffect(() => {
-    setSandwich(detectSandwich(messages))
-  }, [messages])
 
   function handleSend(override) {
     const msg = (override ?? input).trim()
@@ -228,14 +279,12 @@ export default function SubAIWidget() {
     recognition.start()
   }
 
-  const hasSandwichContent = sandwich.protein || sandwich.cheese || sandwich.veggies.length || sandwich.sauce
-
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-[min(560px,90vw)]">
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="w-full bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden" style={{ maxHeight: '540px' }}>
+        <div className="w-full bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden" style={{ maxHeight: '560px' }}>
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-[#009A44] flex-shrink-0">
@@ -256,18 +305,8 @@ export default function SubAIWidget() {
             </div>
           </div>
 
-          {/* ── Sandwich preview ─────────────────────────────────────────── */}
-          <div className="flex-shrink-0 border-b border-gray-100 px-4 pt-2.5 pb-2.5"
-            style={{ background: 'linear-gradient(180deg,#FFFBF0 0%,#fff 100%)' }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Your Sandwich</span>
-              {hasSandwichContent && (
-                <span className="text-[8px] text-[#009A44] font-semibold">Building…</span>
-              )}
-            </div>
-            <SandwichViz sandwich={sandwich} />
-            <StepIndicator sandwich={sandwich} />
-          </div>
+          {/* Sandwich Builder — logged-in users only */}
+          {user?.isLoggedIn && <SandwichBuilder messages={messages} />}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 min-h-0">
@@ -279,12 +318,26 @@ export default function SubAIWidget() {
                 </div>
               </div>
             )}
+
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-3`}>
                 {msg.role !== 'user' && (
                   <div className="w-6 h-6 rounded-full bg-[#009A44] flex items-center justify-center text-white text-[10px] font-black mr-2 flex-shrink-0 mt-1">S</div>
                 )}
-                {msg.buildSub ? (
+
+                {/* Food card row */}
+                {msg.menuItems ? (
+                  <div className="flex flex-col gap-2 min-w-0 flex-1">
+                    {msg.content && (
+                      <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm text-gray-800">
+                        {msg.content}
+                      </div>
+                    )}
+                    <MenuItemCards items={msg.menuItems} />
+                  </div>
+
+                /* Ingredient builder card */
+                ) : msg.buildSub ? (
                   <div className="flex flex-col gap-2 max-w-[92%] min-w-0">
                     {msg.content && (
                       <div className="px-3.5 py-2.5 rounded-2xl text-sm bg-gray-100 text-gray-800 rounded-bl-sm">
@@ -293,18 +346,27 @@ export default function SubAIWidget() {
                     )}
                     <SubIngredientBuilder subName={msg.buildSub} />
                   </div>
+
+                /* Normal text bubble */
                 ) : (
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm max-w-[85%] ${msg.role === 'user' ? 'bg-[#009A44] text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
+                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm max-w-[85%] ${
+                    msg.role === 'user'
+                      ? 'bg-[#009A44] text-white rounded-br-sm'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                  }`}>
                     {msg.content}
                   </div>
                 )}
               </div>
             ))}
+
             {isLoading && (
               <div className="flex gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-[#009A44] flex items-center justify-center text-white text-[10px] font-black flex-shrink-0 mt-1">S</div>
                 <div className="flex items-end gap-1 px-4 py-3 bg-gray-100 rounded-2xl rounded-bl-sm">
-                  {[0,150,300].map(d => <span key={d} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+                  {[0,150,300].map(d => (
+                    <span key={d} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                  ))}
                 </div>
               </div>
             )}
@@ -320,7 +382,7 @@ export default function SubAIWidget() {
         </div>
       )}
 
-      {/* Bottom pill – always visible */}
+      {/* Bottom pill — always visible */}
       <div className="w-full flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-3 shadow-lg">
         <svg className="w-5 h-5 text-[#009A44] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
