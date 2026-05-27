@@ -1,8 +1,87 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import Markdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { useAIChat } from '../ai/useAIChat'
 import SubIngredientBuilder from './SubIngredientBuilder'
+
+// ─── BotMessage — markdown renderer with smart card / pill detection ─────────
+
+// Recursively extract plain text from a React element tree
+function getChildText(el) {
+  if (!el) return ''
+  if (typeof el === 'string' || typeof el === 'number') return String(el)
+  const c = el?.props?.children
+  if (!c) return ''
+  if (typeof c === 'string') return c
+  if (Array.isArray(c)) return c.map(getChildText).join('')
+  return getChildText(c)
+}
+
+const mdComponents = {
+  p:      ({ children }) => (
+    <p style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 8, color: 'inherit' }}>{children}</p>
+  ),
+  strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+  em:     ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+  ul: ({ children }) => {
+    const items = (Array.isArray(children) ? children : [children]).filter(Boolean)
+    const allShort = items.length >= 2 && items.every(c => {
+      const t = getChildText(c)
+      return t.length > 0 && t.length < 50
+    })
+    if (allShort) {
+      return (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '4px 0 8px' }}>
+          {items.map((c, i) => (
+            <span key={i} style={{
+              background: '#f0faf5', border: '1px solid #009A44', borderRadius: 999,
+              padding: '3px 10px', fontSize: 11, fontWeight: 700, color: '#009A44',
+            }}>{getChildText(c)}</span>
+          ))}
+        </div>
+      )
+    }
+    return <ul style={{ listStyle: 'disc', paddingLeft: 18, marginBottom: 8, fontSize: 13, lineHeight: 1.7 }}>{children}</ul>
+  },
+  ol: ({ children }) => (
+    <ol style={{ listStyle: 'decimal', paddingLeft: 18, marginBottom: 8, fontSize: 13, lineHeight: 1.7 }}>{children}</ol>
+  ),
+  li: ({ children }) => <li style={{ marginBottom: 3 }}>{children}</li>,
+}
+
+const NUTRITION_RE = /\b(\d+\s*(cal|kcal|calories|g protein|g fat|mg sodium)|(?:calories|protein|fat|carbs?|sodium)\s*:?\s*\d+)/i
+
+function BotMessage({ content }) {
+  // Strip code fences
+  const text = content.replace(/```[\s\S]*?```/g, '').trim()
+  const isNutrition = NUTRITION_RE.test(text)
+
+  const inner = <Markdown components={mdComponents}>{text}</Markdown>
+
+  if (isNutrition) {
+    return (
+      <div style={{
+        maxWidth: '90%', fontSize: 13, lineHeight: 1.7,
+        background: '#fff', borderRadius: 12,
+        border: '1px solid #e8f5e9', borderLeft: '3px solid #009A44',
+        padding: 12, boxShadow: '0 1px 4px rgba(0,154,68,0.06)',
+      }}>
+        {inner}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      maxWidth: '90%', fontSize: 13, lineHeight: 1.7, color: '#1F2937',
+      background: '#F3F4F6', borderRadius: '16px 16px 16px 4px',
+      padding: '10px 14px',
+    }}>
+      {inner}
+    </div>
+  )
+}
 
 // ─── MenuItemCards ────────────────────────────────────────────────────────────
 
@@ -328,34 +407,26 @@ export default function SubAIWidget() {
                 {/* Food card row */}
                 {msg.menuItems ? (
                   <div className="flex flex-col gap-2 min-w-0 flex-1">
-                    {msg.content && (
-                      <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm text-gray-800">
-                        {msg.content}
-                      </div>
-                    )}
+                    {msg.content && <BotMessage content={msg.content} />}
                     <MenuItemCards items={msg.menuItems} />
                   </div>
 
                 /* Ingredient builder card */
                 ) : msg.buildSub ? (
                   <div className="flex flex-col gap-2 max-w-[92%] min-w-0">
-                    {msg.content && (
-                      <div className="px-3.5 py-2.5 rounded-2xl text-sm bg-gray-100 text-gray-800 rounded-bl-sm">
-                        {msg.content}
-                      </div>
-                    )}
+                    {msg.content && <BotMessage content={msg.content} />}
                     <SubIngredientBuilder subName={msg.buildSub} />
                   </div>
 
-                /* Normal text bubble */
-                ) : (
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm max-w-[85%] ${
-                    msg.role === 'user'
-                      ? 'bg-[#009A44] text-white rounded-br-sm'
-                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                  }`}>
+                /* User bubble */
+                ) : msg.role === 'user' ? (
+                  <div className="px-3.5 py-2.5 rounded-2xl text-sm max-w-[85%] bg-[#009A44] text-white rounded-br-sm">
                     {msg.content}
                   </div>
+
+                /* Bot message with markdown + smart cards */
+                ) : (
+                  <BotMessage content={msg.content} />
                 )}
               </div>
             ))}
